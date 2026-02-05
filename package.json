@@ -16,6 +16,6 @@
 	"type": "module",
 	"dependencies": {
 		"@sveltejs/adapter-static": "^2.0.3",
-		"xword-puz": "https://github.com/orez-/xword-puz/releases/download/0.3.0/xword-puz-0.3.0.tgz"
+		"xword-puz": "https://github.com/orez-/xword-puz/releases/download/0.4.0/xword-puz-0.4.0.tgz"
 	}
 }

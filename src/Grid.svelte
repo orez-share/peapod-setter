@@ -302,7 +302,10 @@
                 try {
                   obj = JSON.parse(text);
                   pastable = deserializeGrid(obj);
-                } catch { return };
+                } catch (exc) {
+                  console.warn(exc);
+                  return
+                };
                 paste(pastable);
               })
               break;
@@ -508,9 +511,15 @@
       title,
       author,
     };
-    const fileContents = generate_puz(payload);
-    const filename = title || "Untitled";
-    downloadBlob(fileContents, `${filename}.puz`, "application/octet-stream");
+    const fileContents = generate_puz(payload, "ipuz");
+    const filename = sanitizeFilename(title) || "Untitled";
+    downloadBlob(fileContents, `${filename}.ipuz`, "application/octet-stream");
+  }
+
+  const sanitizeFilename = (title) => {
+    return title
+      .replace(/[^\x23-\x7F]/g, "")
+      .replace(/[/?<>\\:*|"]/g, "");
   }
 
   $: selAcrossClueCell = acrossClueCell({...selected, grid});
