@@ -100,10 +100,7 @@
     for (idx = start; idx < back && !grid[idx].wall; idx += step) {
       if (idx == selIdx.start) sel.start = gridChunks.length;
       else if (idx == selIdx.end) sel.end = gridChunks.length;
-      const fill = grid[idx].fill;
-      // XXX: omit partially-filled cells, for now
-      const partialFill = fill.length && fill.length !== cellFillLen;
-      gridChunks.push(partialFill ? "" : fill);
+      gridChunks.push(grid[idx].fill);
     }
 
     // If we're selecting a single line of cells which falls entirely within
@@ -522,6 +519,16 @@
       .replace(/[/?<>\\:*|"]/g, "");
   }
 
+  const inscribePreview = (cell, preview) => {
+    if (!preview) return null;
+    const idx = preview.indexOf(cell);
+    return {
+      before: preview.substring(0, idx),
+      existing: cell,
+      after: preview.substring(idx + cell.length),
+    };
+  }
+
   $: selAcrossClueCell = acrossClueCell({...selected, grid});
   $: selDownClueCell = downClueCell({...selected, grid});
   renumber();
@@ -559,7 +566,7 @@
       {#each {length: width} as _, x }
         {@const idx = width * y + x}
         {@const cell = grid[idx]}
-        {@const previewFill = preview.get(idx)}
+        {@const previewFill = inscribePreview(cell.fill, preview.get(idx))}
         {@const isSelected = selected && selected.x == x && selected.y == y}
         <div class="cell"
           class:selected-area={cellIsSelected(selected, x, y)}
@@ -578,8 +585,11 @@
           {#if cell.number}
             <span class="cell-number">{cell.number}</span>
           {/if}
-          {#if !cell.fill && previewFill }
-            <span class="cell-fill preview">{previewFill}</span>
+          {#if previewFill }
+            {""+/* We need to cram all these spans into one line because html is maintaining the spaces */""}
+            <span class="cell-fill">
+              <span class="preview">{previewFill.before}</span><span>{previewFill.existing}</span><span class="preview">{previewFill.after}</span>
+            </span>
           {:else}
             <span class="cell-fill">{cell.fill}</span>
           {/if}

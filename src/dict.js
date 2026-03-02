@@ -10,12 +10,13 @@ export default async () => {
   const entries = filterMap(text.split('\n'), toEntry);
   const chunkIndex = new Map;
   for (const entry of entries) {
-    const chunks = entry.chunks;
-    delete entry.chunks;
-    for (const chunk of chunks) {
-      const indexEntry = chunkIndex.get(chunk) || [];
-      indexEntry.push(entry);
-      chunkIndex.set(chunk, indexEntry);
+    for (let len = 1; len <= chunkLen; len++) {
+      const chunks = new Set(chunkedGen(entry.word, len));
+      for (const chunk of chunks) {
+        const indexEntry = chunkIndex.get(chunk) || [];
+        indexEntry.push(entry);
+        chunkIndex.set(chunk, indexEntry);
+      }
     }
   }
   return { entries, chunkIndex, filterFit };
@@ -46,7 +47,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
       const wordChunks = chunked(entry.word);
       if (exact && wordChunks.length != gridChunks.length) continue;
       for (const [wordIdx, chunk] of wordChunks.entries()) {
-        if (chunk == anchor) {  // try anchoring here
+        if (chunk.includes(anchor)) {  // try anchoring here
           // word       ["AB", "CD", "EF", "GH"]
           // grid [ "" ,  "" , "CD",  "" ,  "" ]
           //             anchor ^      ^ pivot
@@ -75,7 +76,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
           // all characters fit
           const fits = wordChunks.every((chunk, idx) => {
             const cell = gridChunks[gridStart + idx];
-            return !cell || cell == chunk;
+            return chunk.includes(cell);
           });
           if (!fits) continue;
 
@@ -130,7 +131,6 @@ const toEntry = line => {
   let [word, score] = line.split(';');
   if (!word.match(`^([A-Z]{${chunkLen}})+$`)) return null;
 
-  const chunks = new Set(chunked(word));
   score = +score;
-  return { word, score, chunks }
+  return { word, score }
 }
