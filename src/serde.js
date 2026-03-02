@@ -6,6 +6,8 @@ const EMPTY_MANY = 29;
 const WALL_ONE = 30;
 const WALL_MANY = 31;
 
+const MANY = 3;
+
 const encodeChr = (byte) => {
   if (byte < 65 || byte > 90) {
     throw new Error("found unexpected character in fill");
@@ -43,10 +45,10 @@ const serializeFill = ({grid, width, height}) => {
         write5(one);
         break;
       } else {
-        const take = Math.min(len, 258);
+        const take = Math.min(len, 255 + MANY);
         len -= take;
         write5(many);
-        write8(take-2);
+        write8(take - MANY);
       }
     }
   };
@@ -171,14 +173,14 @@ const deserializeFill = (fill) => {
     } else if (elem === EMPTY_ONE) {
       grid.push({...EMPTY});
     } else if (elem === EMPTY_MANY) {
-      const count = read(8) + 2;
+      const count = read(8) + MANY;
       for (let n = 0; n < count; n++) {
         grid.push({...EMPTY});
       }
     } else if (elem === WALL_ONE) {
       grid.push({...WALL});
     } else if (elem === WALL_MANY) {
-      const count = read(8) + 2;
+      const count = read(8) + MANY;
       for (let n = 0; n < count; n++) {
         grid.push({...WALL});
       }
