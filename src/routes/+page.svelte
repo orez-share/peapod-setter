@@ -36,7 +36,8 @@
     }
     let allCellFills;
     const getStats = ({ pattern, index, exact }) => {
-      if (pattern.some(cell => cell)) {
+      // Only look for fits if we have some cell on this axis to anchor on
+      if (pattern.some(cell => cell.length === cellFillLen)) {
         const { gridFills, cellFills } = dict.filterFit(pattern, index, exact);
         allCellFills = intersect(allCellFills, cellFills);
         return gridFills;

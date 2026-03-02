@@ -10,13 +10,11 @@ export default async () => {
   const entries = filterMap(text.split('\n'), toEntry);
   const chunkIndex = new Map;
   for (const entry of entries) {
-    for (let len = 1; len <= chunkLen; len++) {
-      const chunks = new Set(chunkedGen(entry.word, len));
-      for (const chunk of chunks) {
-        const indexEntry = chunkIndex.get(chunk) || [];
-        indexEntry.push(entry);
-        chunkIndex.set(chunk, indexEntry);
-      }
+    const chunks = new Set(chunked(entry.word));
+    for (const chunk of chunks) {
+      const indexEntry = chunkIndex.get(chunk) || [];
+      indexEntry.push(entry);
+      chunkIndex.set(chunk, indexEntry);
     }
   }
   return { entries, chunkIndex, filterFit };
@@ -47,7 +45,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
       const wordChunks = chunked(entry.word);
       if (exact && wordChunks.length != gridChunks.length) continue;
       for (const [wordIdx, chunk] of wordChunks.entries()) {
-        if (chunk.includes(anchor)) {  // try anchoring here
+        if (chunk === anchor) {  // try anchoring here
           // word       ["AB", "CD", "EF", "GH"]
           // grid [ "" ,  "" , "CD",  "" ,  "" ]
           //             anchor ^      ^ pivot
@@ -88,13 +86,13 @@ function filterFit(gridChunks, pivotIndex, exact) {
     }
   };
 
-  if (gridChunks[pivotIndex]) {
+  if (gridChunks[pivotIndex].length === chunkLen) {
     fitEm(pivotIndex);
   } else {
     // find words that fit:
     // - previous filled cell from pivot (& include pivot)
     for (let idx = pivotIndex; idx >= 0; idx--) {
-      if (gridChunks[idx]) {
+      if (gridChunks[idx].length === chunkLen) {
         fitEm(idx);
         break
       }
@@ -103,7 +101,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
     // find words that fit:
     // - next filled cell from pivot (& include pivot)
     for (let idx = pivotIndex; idx < gridChunks.length; idx++) {
-      if (gridChunks[idx]) {
+      if (gridChunks[idx].length === chunkLen) {
         fitEm(idx);
         break
       }
