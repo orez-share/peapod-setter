@@ -117,6 +117,36 @@ export const deserializeGrid = ({fill, across, down}) => {
   return grid;
 }
 
+
+// The fill serialization format is a compressed, bit-packed version of the grid,
+// with run length encoding for walls and empty cells.
+//
+// The data is bit-compacted:
+// - When we read a `character`, we read the next 5 bits. Values 0-25 correspond to
+//   the ascii alphabet, while 26-31 are reserved for control characters.
+// - When we read a `number`, we read the next 8 bits. The actual value of the number may be
+//   shifted by a constant depending on its context.
+//
+// Deserialization follows the following process:
+// - The input starts base64 encoded (for portability), so we need to decode this first.
+// - The first two bytes denote the width and height of the grid. Each byte is 1 lower than
+//   the actual value (since you can't have a 0-width grid).
+//   - eg: if we read 7, then the grid is 8 wide
+// - The remainder of the payload represents the grid fill, per cell from left to right,
+//   top to bottom. It is read until the grid is filled, in the following way:
+//   - We read 5 bits for a character
+//     - If the character is a letter, we read another 5 bits for the second character
+//       in the cell.
+//       - If the second character is a letter, we add both letters to the cell.
+//       - If the second character is control character EMPTY_ONE, we add just the one letter.
+//       - Any other value is an error.
+//     - If the character is EMPTY_ONE, we add an empty cell to the grid.
+//     - If the character is EMPTY_MANY, we read 8 bytes to determine how many empty cells to add.
+//       The number we read is 3 less than the number of cells.
+//       - eg: if we read 7, then we add 10 empty cells
+//       - note that we encode two empty cells as two EMPTY_ONE characters.
+//     - WALL_ONE and WALL_MANY act as EMPTY_ONE and EMPTY_MANY, but for walls.
+//     - Any other value is an error.
 const deserializeFill = (fill) => {
   const EMPTY = { fill: "", wall: false};
   const WALL = { fill: "", wall: true };
