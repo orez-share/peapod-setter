@@ -68,10 +68,10 @@
     }
     preview = preview;
   };
-  const setPreviewAcross = () => {};
-  const setPreviewDown = () => {};
-  export const setPreviewAcrossAtSelected = ({...args}) => setPreviewAcross({...selected, ...args});
-  export const setPreviewDownAtSelected = ({...args}) => setPreviewDown({...selected, ...args});
+  const setPreviewAcross = gridObj.acrossStep(setPreview).bind(gridObj);
+  const setPreviewDown = gridObj.downStep(setPreview).bind(gridObj);
+  export const setPreviewAcrossAtSelected = args => setPreviewAcross({...selected, ...args});
+  export const setPreviewDownAtSelected = args => setPreviewDown({...selected, ...args});
   export const setPreviewAtSelected = fill => {
     let idx = selected.y * width + selected.x;
     preview.clear();

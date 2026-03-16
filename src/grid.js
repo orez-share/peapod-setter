@@ -14,6 +14,7 @@ const chunked = word => chunkedGen(word, chunkLen);
 
 const downStep = function(fn) {
   return function({x, y, ...kwargs}) {
+    console.assert(this instanceof Grid, "`this` bound wrong");
     return fn.call(this, {
       x, y, ...kwargs,
       front: 0,
@@ -25,6 +26,7 @@ const downStep = function(fn) {
 
 const acrossStep = function(fn) {
   return function({x, y, ...kwargs}) {
+    console.assert(this instanceof Grid, "`this` bound wrong");
     const row = y * this.width;
     return fn.call(this, {
       x, y, ...kwargs,
@@ -140,7 +142,7 @@ const updatesForFill = function({front, back, step, x, y, word, pivotIdx}) {
 
 export default class Grid {
   constructor({width, height, grid}) {
-    console.assert(grid == null || grid.length === width * height);
+    console.assert(grid == null || grid.length === width * height, "wrong size grid");
     this.width = width;
     this.height = height;
     this.grid = grid ?? Array(width * height).fill(null)
@@ -153,6 +155,9 @@ export default class Grid {
       }));
     this.renumber();
   }
+
+  acrossStep(fn) { return acrossStep(fn) }
+  downStep(fn) { return downStep(fn) }
 
   acrossPattern = acrossStep(snagPattern);
   downPattern = downStep(snagPattern);
