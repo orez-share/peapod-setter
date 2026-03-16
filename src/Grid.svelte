@@ -1,15 +1,17 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   import init, { generate_puz } from "xword-puz";
-  import { chunked as chunkedGen } from './util';
+  import { chunked as chunkedGen, normalizedRegion } from './util';
   import { serializeGrid, deserializeGrid } from './serde';
-  import { renumberSubgrid } from "./grid";
+  import Grid from "./grid";
 
   export let cellFillLen;
   const chunked = word => chunkedGen(word, cellFillLen);
 
-  const height = 20;
-  const width = 20;
+  const gridObj = new Grid({width: 20, height: 20});
+  $: grid = gridObj.grid;
+  $: width = gridObj.width;
+  $: height = gridObj.height;
 
   const dispatch = createEventDispatcher();
   let undos = [];
@@ -24,15 +26,6 @@
   $: showClues = selectedCell && !selectedCell.wall;
   $: isAreaSelected = selected && (selected.x != selected.x2 || selected.y != selected.y2);
 
-  let grid = Array(width * height).fill(null)
-    .map(() => ({
-      wall: false,
-      fill: "",
-      number: null,
-      downClue: null,
-      acrossClue: null,
-    }));
-
   const setSelected = sel => {
     selected = {x: sel.x, y: sel.y, x2: sel.x, y2: sel.y};
     dispatchUpdate();
@@ -42,146 +35,31 @@
     if (!selected) return;
     let idx = selected.y * width + selected.x;
     dispatch('update', {
-      downPattern: downPattern(selected),
-      acrossPattern: acrossPattern(selected),
+      downPattern: gridObj.downPattern(selected),
+      acrossPattern: gridObj.acrossPattern(selected),
       cell: grid[idx],
     });
   }
 
-  // silly overkill decorators for fns which step through
-  // the grid either Down or Across.
-  // The decorated function should be generic over, and accept,:
-  // - `x` and `y`, some starting position
-  // - `front`, representing the index of the start of the axis (inclusive)
-  // - `back`, representing the index past the end of the axis (exclusive)
-  // - `step`, the amount to step the index by
-
-  const downStep = fn => ({x, y, ...kwargs}) => fn({
-    x, y, ...kwargs,
-    front: 0,
-    back: grid.length,
-    step: width,
-  });
-
-  const acrossStep = fn => ({x, y, ...kwargs}) => {
-    const row = y * width;
-    return fn({
-      x, y, ...kwargs,
-      front: row,
-      back: row + width,
-      step: 1,
-    });
-  }
-
-  // fns for fetching the "fill pattern" around some coordinate.
-  // A "pattern" (: [String]) is the cell fill before and after
-  // the coordinate in the given axis, from wall to wall.
-
-  const snagPattern = ({front, back, step, x, y, x2, y2}) => {
-    // I wrote this function bad, as a joke.
-    const ERROR = null;
-    let chunkIndex = -1;
-    let idx = y * width + x;
-    if (grid[idx].wall) return ERROR; // XXX
-    // run backwards
-    for(; idx >= front; idx -= step) {
-      if (grid[idx].wall) break;
-      chunkIndex++;
-    }
-    const region = normalizedRegion({x, y, x2, y2});
-    const selIdx = {
-      start: region.minY * width + region.minX,
-      end: region.maxY * width + region.maxX,
-    };
-    const sel = { start: null, end: null };
-    const start = idx + step;
-    let gridChunks = [];
-    // run forward and collect chunks
-    for (idx = start; idx < back && !grid[idx].wall; idx += step) {
-      if (idx == selIdx.start) sel.start = gridChunks.length;
-      else if (idx == selIdx.end) sel.end = gridChunks.length;
-      gridChunks.push(grid[idx].fill);
-    }
-
-    // If we're selecting a single line of cells which falls entirely within
-    // the pattern we're snagging, force the suggestions to completely
-    // fill the selection.
-    //
-    // Understanding how these requirements are represented by this condition
-    // is left as an exercise to the reader (sorry).
-    let exact = false;
-    if (sel.start != null && sel.end != null) {
-      gridChunks = gridChunks.slice(sel.start, sel.end + 1);
-      chunkIndex -= sel.start;
-      exact = true;
-    }
-    return { pattern: gridChunks, index: chunkIndex, exact };
-  }
-
-  const acrossPattern = acrossStep(snagPattern);
-  const downPattern = downStep(snagPattern);
-
-  // fns for setting a full clue starting at some coordinate.
-  // delimits the clue with walls, if needed.
-
-  // XXX: does not check that this is legal fill
-  const setFill = ({front, back, step, x, y, word, pivotIdx}) => {
-    let idx = y * width + x - pivotIdx * step;
-    const updates = [];
-    if (front <= idx - step) {
-      updates.push({
-        idx: idx - step,
-        is: {
-          fill: "",
-          wall: true,
-        },
-      });
-    }
-    for (const fill of chunked(word)) {
-      updates.push({
-        idx,
-        is: {
-          fill,
-          wall: false,
-        },
-      });
-      idx += step;
-    }
-    if (idx < back) {
-      updates.push({
-        idx,
-        is: {
-          fill: "",
-          wall: true,
-        },
-      });
-    }
+  const setUpdates = updates => {
     performAction("Set fill", updates);
     gridRef.focus();
-    renumber();
+    gridObj.renumber();
     dispatchUpdate();
   };
 
-  const setAcrossFill = acrossStep(setFill);
-  const setDownFill = downStep(setFill);
-  export const setAcrossFillAtSelected = ({...args}) => setAcrossFill({...selected, ...args});
-  export const setDownFillAtSelected = ({...args}) => setDownFill({...selected, ...args});
-
-  const frontClueCell = ({front, step, x, y, grid}) => {
-    // unselected value is an empty object
-    // because it simplifies the svelte binds
-    if (x == null || y == null) return {};
-    let idx = x + width * y;
-    if (!grid[idx]) return null;
-    for (; idx >= front && !grid[idx].wall; idx -= step) { }
-    return grid[idx + step];
+  export const setAcrossFillAtSelected = args => {
+    const updates = gridObj.updatesForAcrossFill({...selected, ...args});
+    setUpdates(updates);
   };
-  const acrossClueCell = acrossStep(frontClueCell);
-  const downClueCell = downStep(frontClueCell);
+  export const setDownFillAtSelected = args => {
+    const updates = gridObj.updatesForDownFill({...selected, ...args});
+    setUpdates(updates);
+  }
 
   // ===
 
-  const setPreview = ({front, back, step, x, y, word, pivotIdx}) => {
+  const setPreview = ({step, x, y, word, pivotIdx}) => {
     let idx = y * width + x - pivotIdx * step;
     preview.clear();
     for (const chunk of chunked(word)) {
@@ -190,8 +68,8 @@
     }
     preview = preview;
   };
-  const setPreviewAcross = acrossStep(setPreview);
-  const setPreviewDown = downStep(setPreview);
+  const setPreviewAcross = () => {};
+  const setPreviewDown = () => {};
   export const setPreviewAcrossAtSelected = ({...args}) => setPreviewAcross({...selected, ...args});
   export const setPreviewDownAtSelected = ({...args}) => setPreviewDown({...selected, ...args});
   export const setPreviewAtSelected = fill => {
@@ -229,10 +107,8 @@
         wall: !grid[idx].wall,
       }
     }]);
-    renumber();
+    gridObj.renumber();
   }
-
-  const renumber = () => renumberSubgrid({grid, width, height});
 
   const handleCellMouseOver = ({event, x, y}) => {
     if (event.buttons != 1 || selected?.state !== "area") return;
@@ -359,7 +235,7 @@
 
     undos = undos;
     redos = redos;
-    renumber(); // TODO: could only renumber if a wall were changed.
+    gridObj.renumber(); // TODO: could only renumber if a wall were changed.
     gridRef.focus();
     dispatchUpdate();
   }
@@ -374,7 +250,7 @@
 
     undos = undos;
     redos = redos;
-    renumber(); // TODO: could only renumber if a wall were changed.
+    gridObj.renumber(); // TODO: could only renumber if a wall were changed.
     gridRef.focus();
     dispatchUpdate();
   }
@@ -396,7 +272,7 @@
       }
     }
     performAction("Paste region", updates);
-    renumber();
+    gridObj.renumber();
   }
 
   const downloadURL = (data, fileName) => {
@@ -418,21 +294,12 @@
     setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   }
 
-  const normalizedRegion = ({x, y, x2, y2}) => {
-    return {
-      minX: Math.min(x, x2),
-      maxX: Math.max(x, x2),
-      minY: Math.min(y, y2),
-      maxY: Math.max(y, y2),
-    }
-  }
-
   const normalizedSelected = () => normalizedRegion(selected);
 
   const copySelected = () => {
     if (!selected) return;
     let region = normalizedSelected();
-    const clone = cloneSubgrid(region);
+    const clone = gridObj.cloneSubgrid(region);
     let serialized = serializeGrid(clone);
     navigator.clipboard.writeText(JSON.stringify(serialized));
   }
@@ -455,20 +322,7 @@
       }
     }
     performAction(action, updates);
-    renumber();
-  }
-
-  const cloneSubgrid = ({minX, minY, maxX, maxY}) => {
-    const subgrid = [];
-    const subheight = maxY - minY + 1;
-    const subwidth = maxX - minX + 1;
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        const idx = y * width + x;
-        subgrid.push({...grid[idx]});
-      }
-    }
-    return { grid: subgrid, width: subwidth, height: subheight };
+    gridObj.renumber();
   }
 
   const exportPuz = () => {
@@ -484,8 +338,7 @@
       };
     }
 
-    const sub = cloneSubgrid(region);
-    renumberSubgrid(sub);
+    const sub = gridObj.cloneSubgrid(region);
     const acrossClues = [];
     const downClues = [];
     for (const cell of sub.grid) {
@@ -529,9 +382,8 @@
     };
   }
 
-  $: selAcrossClueCell = acrossClueCell({...selected, grid});
-  $: selDownClueCell = downClueCell({...selected, grid});
-  renumber();
+  $: selAcrossClueCell = gridObj.acrossClueCell({...selected, grid});
+  $: selDownClueCell = gridObj.downClueCell({...selected, grid});
 
   onMount(async () => {
     await init();

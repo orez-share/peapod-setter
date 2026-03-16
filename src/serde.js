@@ -1,5 +1,5 @@
 import { filterMap } from "./util";
-import { renumberSubgrid } from "./grid";
+import Grid from "./grid";
 
 const EMPTY_ONE = 28;
 const EMPTY_MANY = 29;
@@ -16,10 +16,6 @@ const encodeChr = (byte) => {
 }
 
 export const serializeGrid = (sub) => {
-  // if the copied subgrid has dangling one-long sections
-  // that were not one-long in the full grid, we want to be
-  // sure we clear their `*Clue` fields.
-  renumberSubgrid(sub);
   return {
     fill: serializeFill(sub),
     across: filterMap(sub.grid, (elem) => elem.acrossClue),
@@ -110,7 +106,6 @@ export const deserializeGrid = ({fill, across, down}) => {
   const grid = deserializeFill(fill);
   const acrossIt = across.values();
   const downIt = down.values();
-  renumberSubgrid(grid);
   for (let cell of grid.grid) {
     if (cell.downClue != null) {
       cell.downClue = downIt.next().value;
@@ -188,5 +183,5 @@ const deserializeFill = (fill) => {
       throw new Error("could not deserialize -- unexpected control byte");
     }
   }
-  return { grid, width, height };
+  return new Grid({ grid, width, height });
 }
