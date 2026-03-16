@@ -190,6 +190,11 @@ export default class Grid {
       const cell = grid[idx];
       const bounded = topBounded || leftBounded;
       cell.number = null;
+      if (cell.wall) {
+        cell.downClue = null;
+        cell.acrossClue = null;
+        return;
+      }
       if (topBounded) cell.downClue ??= "";
       else cell.downClue = null;
       if (leftBounded) cell.acrossClue ??= "";
