@@ -388,7 +388,7 @@
 
   // &gridObj, &mut suggestion
   const suggestRegion = () => {
-    // The way our current suggestion code works, we REALLY REALLY want to have a pivot.
+    // The way our current suggestion code works, we REALLY REALLY want to have an anchor.
     // This isn't strictly required, but it simplifies the mental model a bit, I think.
     //
     // so, okay, how about this:
@@ -396,7 +396,7 @@
     // - enumerate all the lines we need (filtering out fully-filled lines),
     //   and max-heap em by how many characters are already filled
     //   - or perhaps `max(filled), min(missing)`
-    //   - this ensures we always have a pivot
+    //   - this ensures we always have an anchor
     // - as you pick each one, insert each (new) cross fill back into the heap,
     //   with the weight updated
     // - keep pluckin from the heap, discarding lines we've already plucked
@@ -503,6 +503,7 @@
         const y = Math.floor(idx / sub.width);
         // note these conditions are intentionally swapped: we're seeking the cross line.
         const crossCell = elem.dir === "across" ? sub.downClueCell({x, y}) : sub.acrossClueCell({x, y});
+        if (!crossCell) continue; // no cross line
         const crossId = elem.dir === "across" ? `${crossCell.number}D` : `${crossCell.number}A`;
         const cross = current.get(crossId);
         cross.missing -= 1;
@@ -517,7 +518,16 @@
 
   // &dict
   function* findFills(sub, order) {
-    // { idx, fills }
+    // Don't suggest fill with duplicate words in it.
+    // Like, cmon man.
+    const seenWords = new Set;
+
+    // Each element of the stack contains the following properties:
+    // - `fills`: a list of words (`string[]`) which could fit this line
+    // - `seek`: the index in `fills` of the next word we're going to try
+    // - `cur`: the index in `fills` of the word currently slotted into the grid.
+    // - `stack[i]`'s `start` and `step` are copied from `order[i]`, for convenience.
+    //   These define how to walk the line.
     const stack = [];
     // &mut stack, &sub, &order, &dict
     const addFrame = () => {
@@ -528,14 +538,15 @@
       }
       const { gridFills } = dict.filterFit(gridChunks, 0, true);
       const fills = gridFills.map(elem => elem.entry.word);
-      stack.push({ fills, idx: 0, start, step });
+      stack.push({ fills, seek: 0, cur: null, start, step });
     }
     addFrame();
     while (true) {
       // # Succ
       // Pop frames with no more potential words
       let top;
-      while ((top = stack[stack.length - 1]) && top.idx >= top.fills.length) {
+      while ((top = stack[stack.length - 1]) && top.seek >= top.fills.length) {
+        if (top.cur != null) seenWords.delete(top.fills[top.cur]);
         stack.pop();
         // reset the cells set by this slot
         for (let [idx, fill] of order[stack.length].cells) {
@@ -546,13 +557,20 @@
       if (!top) return;
 
       // apply the next word
-      const word = top.fills[top.idx];
+      const word = top.fills[top.seek];
+      if (seenWords.has(word)) {
+        top.seek++;
+        continue;
+      }
+      seenWords.add(word);
+      if (top.cur != null) seenWords.delete(top.fills[top.cur]);
+      top.cur = top.seek;
       let idx = top.start;
       for (const fill of chunked(word)) {
         sub.grid[idx].fill = fill;
         idx += top.step;
       }
-      top.idx++;
+      top.seek++;
 
       // if we've filled our slots, yield this as a possible fill
       if (stack.length === order.length) {
