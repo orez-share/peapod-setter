@@ -386,7 +386,7 @@
     };
   }
 
-  // &gridObj, &mut suggestion
+  // &gridObj, &mut suggestion, &mut preview
   const suggestRegion = async () => {
     // The way our current suggestion code works, we REALLY REALLY want to have an anchor.
     // This isn't strictly required, but it simplifies the mental model a bit, I think.
@@ -428,7 +428,23 @@
       // TODO: display a "no more suggestions" or something.
       return;
     }
-    console.log("a suggestion:", value);
+    const offset = {offX: suggestion.region.minX, offY: suggestion.region.minY};
+    setPreviewFromSubgrid(value, offset);
+  }
+
+  // &mut preview
+  const setPreviewFromSubgrid = (sub, {offX, offY}) => {
+    preview.clear();
+    for (let y = 0; y < sub.height; y++) {
+      for (let x = 0; x < sub.width; x++) {
+        const subIdx = y * sub.width + x;
+        const supIdx = (y + offY) * width + (x + offX);
+        const cell = sub.grid[subIdx];
+        if (cell.wall) continue;
+        preview.set(supIdx, cell.fill);
+      }
+    }
+    preview = preview;
   }
 
   const pickSuggestionOrder = sub => {
