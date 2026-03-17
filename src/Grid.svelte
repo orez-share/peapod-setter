@@ -7,6 +7,7 @@
   import { Heap } from 'heap-js';
 
   export let cellFillLen;
+  export let dict;
   const chunked = word => chunkedGen(word, cellFillLen);
 
   const gridObj = new Grid({width: 20, height: 20});
@@ -523,17 +524,18 @@
       const { start, step, end } = order[stack.length];
       const gridChunks = [];
       for (let idx = start; idx < end; idx += step) {
-        gridChunks.push(sub.grid[idx]);
+        gridChunks.push(sub.grid[idx].fill);
       }
       const { gridFills } = dict.filterFit(gridChunks, 0, true);
-      stack.push({ fills: gridFills, idx: 0, start, step });
+      const fills = gridFills.map(elem => elem.entry.word);
+      stack.push({ fills, idx: 0, start, step });
     }
     addFrame();
     while (true) {
       // # Succ
       // Pop frames with no more potential words
       let top;
-      while (top = stack[stack.length - 1] && top.idx >= top.fills.length) {
+      while ((top = stack[stack.length - 1]) && top.idx >= top.fills.length) {
         stack.pop();
         // reset the cells set by this slot
         for (let [idx, fill] of order[stack.length].cells) {
@@ -546,7 +548,7 @@
       // apply the next word
       const word = top.fills[top.idx];
       let idx = top.start;
-      for (const fill of word) {
+      for (const fill of chunked(word)) {
         sub.grid[idx].fill = fill;
         idx += top.step;
       }

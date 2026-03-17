@@ -75,7 +75,7 @@
 </svelte:head>
 
 <div id="body-wrapper">
-  <Grid bind:this={grid} on:update={generateCellOptions} {cellFillLen} />
+  <Grid {dict} bind:this={grid} on:update={generateCellOptions} {cellFillLen} />
   <CellInfo {dict} {downFills} {acrossFills} {cellFills} {cellFillLen}
     on:fillAcross={evt => grid.setAcrossFillAtSelected(evt.detail)}
     on:fillDown={evt => grid.setDownFillAtSelected(evt.detail)}
