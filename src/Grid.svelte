@@ -4,6 +4,7 @@
   import { chunked as chunkedGen, normalizedRegion } from './util';
   import { serializeGrid, deserializeGrid } from './serde';
   import Grid from "./grid";
+  import { Heap } from 'heap-js';
 
   export let cellFillLen;
   const chunked = word => chunkedGen(word, cellFillLen);
@@ -25,6 +26,8 @@
   $: selectedCell = selected && grid[selected.x + selected.y * width];
   $: showClues = selectedCell && !selectedCell.wall;
   $: isAreaSelected = selected && (selected.x != selected.x2 || selected.y != selected.y2);
+
+  let suggestion;
 
   const setSelected = sel => {
     selected = {x: sel.x, y: sel.y, x2: sel.x, y2: sel.y};
@@ -382,8 +385,186 @@
     };
   }
 
-  $: selAcrossClueCell = gridObj.acrossClueCell({...selected, grid});
-  $: selDownClueCell = gridObj.downClueCell({...selected, grid});
+  // &gridObj, &mut suggestion
+  const suggestRegion = () => {
+    // The way our current suggestion code works, we REALLY REALLY want to have a pivot.
+    // This isn't strictly required, but it simplifies the mental model a bit, I think.
+    //
+    // so, okay, how about this:
+    // start by picking the fill order:
+    // - enumerate all the lines we need (filtering out fully-filled lines),
+    //   and max-heap em by how many characters are already filled
+    //   - or perhaps `max(filled), min(missing)`
+    //   - this ensures we always have a pivot
+    // - as you pick each one, insert each (new) cross fill back into the heap,
+    //   with the weight updated
+    // - keep pluckin from the heap, discarding lines we've already plucked
+    //
+    // After we've got the fill order, we can DFS following that order without
+    // having to think too hard about it. But with a modified DFS that can
+    // be suspended (ie no recursion).
+    //
+    // Christ, I wish we were doin this in Rust
+
+    if (!isAreaSelected) return;
+    const region = normalizedSelected();
+    // Javascript Have A Std Equality Operator Like Literally
+    // Every Other Modern Language Challenge [Impossible]
+    const props = ['minX', 'minY', 'maxX', 'maxY'];
+    if (!suggestion || !props.every(prop => suggestion.region[prop] === region[prop])) {
+      // Prime the generator if we don't have one for this region already
+      const sub = gridObj.cloneSubgrid(region);
+      const order = pickSuggestionOrder(sub);
+      const generator = findFills(sub, order);
+      suggestion = { region, generator };
+    }
+    // TODO: might need to lock the button while the generator is running
+    const { done, value } = suggestion.generator.next();
+    if (done) {
+      suggestion = null;
+      console.log("no more suggestions");
+      // TODO: display a "no more suggestions" or something.
+      return;
+    }
+    console.log("a suggestion:", value);
+  }
+
+  const pickSuggestionOrder = sub => {
+    // Collect all the lines
+    const priorityComparator = (a, b) => b.filled - a.filled || a.missing - b.missing;
+    const frontier = new Heap(priorityComparator);
+    const current = new Map;
+    const fromPattern = args => {
+      const pattern = args.pattern;
+      const len = pattern.length;
+      const missing = pattern.reduce((agg, fill) => agg + (fill.length !== cellFillLen), 0);
+      if (!missing) return null;
+      const filled = len - missing;
+      const end = args.start + args.step * pattern.length;
+      return { missing, filled, end, ...args };
+    }
+    for (let idx = 0; idx < sub.grid.length; idx++) {
+      const x = idx % sub.width;
+      const y = Math.floor(idx / sub.width);
+      const cell = sub.grid[idx];
+      if (cell.acrossClue != null) {
+        const across = sub.acrossPattern({x, y});
+        const elem = fromPattern({
+          pattern: across.pattern,
+          start: idx,
+          step: 1,
+          dir: "across",
+          id: `${cell.number}A`,
+        });
+        if (elem) {
+          frontier.push({...elem});
+          current.set(elem.id, elem);
+        }
+      }
+      if (cell.downClue != null) {
+        const down = sub.downPattern({x, y});
+        const elem = fromPattern({
+          pattern: down.pattern,
+          start: idx,
+          step: sub.width,
+          dir: "down",
+          id: `${cell.number}D`,
+        });
+        if (elem) {
+          frontier.push({...elem});
+          current.set(elem.id, elem);
+        }
+      }
+    }
+
+    // Determine an order
+    const order = [];
+    const seenLines = new Set;
+    const seenCells = new Set; // XXX: could be a `bool[]` instead.
+    const pick = ({start, step, end}) => ({start, step, end});
+    let elem;
+    while (elem = frontier.pop()) {
+      if (seenLines.has(elem.id)) continue;
+      seenLines.add(elem.id);
+
+      // Track which `cells` we're actually updating with this line.
+      // ie: which cells aren't being updated by another line
+      const cells = [];
+      for (let idx = elem.start; idx < elem.end; idx += elem.step) {
+        const fill = sub.grid[idx].fill;
+        const isFilled = fill.length === cellFillLen;
+        if (isFilled || seenCells.has(idx)) continue;
+        seenCells.add(idx);
+        cells.push([idx, fill]);
+
+        // update `missing` and `filled` on the cross line
+        const x = idx % sub.width;
+        const y = Math.floor(idx / sub.width);
+        // note these conditions are intentionally swapped: we're seeking the cross line.
+        const crossCell = elem.dir === "across" ? sub.downClueCell({x, y}) : sub.acrossClueCell({x, y});
+        const crossId = elem.dir === "across" ? `${crossCell.number}D` : `${crossCell.number}A`;
+        const cross = current.get(crossId);
+        cross.missing -= 1;
+        cross.filled += 1;
+        frontier.push({...cross});
+      }
+      order.push({...pick(elem), cells});
+    }
+    // order: {cells: [idx, fill], start, step, end }}
+    return order;
+  }
+
+  // &dict
+  function* findFills(sub, order) {
+    // { idx, fills }
+    const stack = [];
+    // &mut stack, &sub, &order, &dict
+    const addFrame = () => {
+      const { start, step, end } = order[stack.length];
+      const gridChunks = [];
+      for (let idx = start; idx < end; idx += step) {
+        gridChunks.push(sub.grid[idx]);
+      }
+      const { gridFills } = dict.filterFit(gridChunks, 0, true);
+      stack.push({ fills: gridFills, idx: 0, start, step });
+    }
+    addFrame();
+    while (true) {
+      // # Succ
+      // Pop frames with no more potential words
+      let top;
+      while (top = stack[stack.length - 1] && top.idx >= top.fills.length) {
+        stack.pop();
+        // reset the cells set by this slot
+        for (let [idx, fill] of order[stack.length].cells) {
+          sub.grid[idx].fill = fill;
+        }
+      }
+      // no more possible fills
+      if (!top) return;
+
+      // apply the next word
+      const word = top.fills[top.idx];
+      let idx = top.start;
+      for (const fill of word) {
+        sub.grid[idx].fill = fill;
+        idx += top.step;
+      }
+      top.idx++;
+
+      // if we've filled our slots, yield this as a possible fill
+      if (stack.length === order.length) {
+        yield sub; // TODO: dunno if this is the most helpful return format.
+        continue;
+      }
+      // otherwise, add a frame
+      addFrame();
+    }
+  }
+
+  // doing an unpack here to coerce `null` to an object
+  $: selAcrossClueCell = gridObj.acrossClueCell({...selected});
+  $: selDownClueCell = gridObj.downClueCell({...selected});
 
   onMount(async () => {
     await init();
@@ -404,6 +585,8 @@
       </div>
     </div>
     <button on:click={exportPuz}>Export{#if isAreaSelected}&nbsp;Selected{/if}</button>
+    <button on:click={suggestRegion}>Offer Fill</button>
+    <button>Accept Fill</button>
     <button class="push" disabled={undos.length === 0} on:click={undo}>Undo</button>
     <button disabled={redos.length === 0} on:click={redo}>Redo</button>
   </div>
@@ -479,7 +662,8 @@
 
 <style>
   #grid-wrapper {
-    display: inline-block;
+    display: flex;
+    flex-direction: column;
   }
 
   #grid {
@@ -572,6 +756,8 @@
   .header {
     display: flex;
     margin-bottom: 10px;
+    width: 661px; /* TODO: don't */
+    flex-wrap: wrap;
   }
 
   .push {
