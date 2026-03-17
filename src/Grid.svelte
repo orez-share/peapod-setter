@@ -387,7 +387,7 @@
   }
 
   // &gridObj, &mut suggestion
-  const suggestRegion = () => {
+  const suggestRegion = async () => {
     // The way our current suggestion code works, we REALLY REALLY want to have an anchor.
     // This isn't strictly required, but it simplifies the mental model a bit, I think.
     //
@@ -420,7 +420,8 @@
       suggestion = { region, generator };
     }
     // TODO: might need to lock the button while the generator is running
-    const { done, value } = suggestion.generator.next();
+    // TODO: mechanism to cancel the search
+    const { done, value } = await suggestion.generator.next();
     if (done) {
       suggestion = null;
       console.log("no more suggestions");
@@ -506,6 +507,7 @@
         if (!crossCell) continue; // no cross line
         const crossId = elem.dir === "across" ? `${crossCell.number}D` : `${crossCell.number}A`;
         const cross = current.get(crossId);
+        if (!cross) continue; // no cross line
         cross.missing -= 1;
         cross.filled += 1;
         frontier.push({...cross});
@@ -517,7 +519,7 @@
   }
 
   // &dict
-  function* findFills(sub, order) {
+  async function* findFills(sub, order) {
     // Don't suggest fill with duplicate words in it.
     // Like, cmon man.
     const seenWords = new Set;
@@ -541,7 +543,23 @@
       stack.push({ fills, seek: 0, cur: null, start, step });
     }
     addFrame();
+
+    // https://stackoverflow.com/a/63646084
+    // Finding fills is a slow process. We don't want to freeze the tab while we
+    // churn on it. `await`ing a `setTimeout` allows the UI to update, preventing
+    // the freezing effect. Running a `setTimeout` every iteration is slow, however
+    // (slows down fill find results). So we only run it every 20ms.
+    let startTime = performance.now();
+    async function refreshUi() {
+      const waitMs = 20;
+      if(performance.now() > startTime + waitMs) {
+        startTime = performance.now();
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
     while (true) {
+      await refreshUi();
       // # Succ
       // Pop frames with no more potential words
       let top;
