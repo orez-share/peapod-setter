@@ -168,6 +168,25 @@ export default class Grid {
   updatesForAcrossFill = acrossStep(updatesForFill);
   updatesForDownFill = downStep(updatesForFill);
 
+  // XXX: Takes ownership of `sub`.
+  updatesForBlitSubgrid(sub, {offX, offY}) {
+    // TODO: some visual feedback if this fails
+    if (offX + sub.width > this.width || offY + sub.height > this.height) return;
+    const updates = [];
+    let gridIdx = 0;
+    for (let y = 0; y < sub.height; y++) {
+      for (let x = 0; x < sub.width; x++) {
+        const idx = (offY + y) * this.width + (offX + x);
+        updates.push({
+          idx,
+          is: sub.grid[gridIdx],
+        });
+        gridIdx++;
+      }
+    }
+    return updates;
+  }
+
   clone() {
     const grid = [];
     for (const elem of this.grid) {
@@ -180,6 +199,7 @@ export default class Grid {
     });
   }
 
+  // Clone a region of the grid.
   cloneSubgrid({minX, minY, maxX, maxY}) {
     const grid = [];
     for (let y = minY; y <= maxY; y++) {

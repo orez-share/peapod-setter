@@ -79,6 +79,7 @@
     clearPreview: (evt => grid.clearPreview()),
     getSelectedRegion: (() => grid.getSelectedRegion()),
     setPreviewFromSubgrid: ((sub, offset) => grid.setPreviewFromSubgrid(sub, offset)),
+    setFillFromSubgrid: ((sub, offset) => grid.setFillFromSubgrid(sub, offset)),
   };
 </script>
 

@@ -67,6 +67,12 @@
     const updates = gridObj.updatesForDownFill({...selected, ...args});
     setUpdates(updates);
   }
+  export const setFillFromSubgrid = (sub, offset) => {
+    const updates = gridObj.updatesForBlitSubgrid(sub, offset);
+    setUpdates(updates);
+  }
+
+  // ===
 
   // &mut preview
   export const setPreviewFromSubgrid = (sub, {offX, offY}) => {
@@ -82,8 +88,6 @@
     }
     preview = preview;
   }
-
-  // ===
 
   const setPreview = ({step, x, y, word, pivotIdx}) => {
     let idx = y * width + x - pivotIdx * step;
@@ -283,20 +287,8 @@
 
   const paste = (sub) => {
     if (!selected) return;
-    // TODO: some visual feedback if this fails
-    if (selected.x + sub.width > width || selected.y + sub.height > height) return;
-    const updates = [];
-    let gridIdx = 0;
-    for (let y = 0; y < sub.height; y++) {
-      for (let x = 0; x < sub.width; x++) {
-        const idx = (selected.y + y) * width + (selected.x + x);
-        updates.push({
-          idx,
-          is: sub.grid[gridIdx],
-        });
-        gridIdx++;
-      }
-    }
+    const offset = {offX: selected.x, offY: selected.y};
+    const updates = gridObj.updatesForBlitSubgrid(sub, offset);
     performAction("Paste region", updates);
     gridObj.renumber();
   }

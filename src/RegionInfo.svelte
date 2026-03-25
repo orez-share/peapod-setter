@@ -10,6 +10,7 @@
   export let gridCallbacks;
   const {
     getSelectedRegion,
+    setFillFromSubgrid,
     setPreviewFromSubgrid,
     clearPreview,
   } = gridCallbacks;
@@ -259,6 +260,8 @@
   <div class="opt-grid">
     {#each suggestions as suggestion}
       <div
+        class="fill-option"
+        on:click={() => setFillFromSubgrid(suggestion.sub.clone(), searchedOffset)}
         on:mouseover={() => setPreviewFromSubgrid(suggestion.sub, searchedOffset)}
         on:mouseout={() => clearPreview()}
       >
@@ -282,9 +285,10 @@
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 
-  .opt-grid > * {
+  .fill-option {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-right: 10px;
+    cursor: pointer;
   }
 </style>
