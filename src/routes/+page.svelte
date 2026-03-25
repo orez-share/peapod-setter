@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import Grid from '../Grid.svelte';
-  import CellInfo from '../CellInfo.svelte';
+  import Suggestions from '../Suggestions.svelte';
   import loadDict from '../dict.js';
 
   const cellFillLen = 2;
@@ -68,6 +68,18 @@
       cellFills = null;
     }
   }
+
+  const gridCallbacks = {
+    fillAcross: (evt => grid.setAcrossFillAtSelected(evt)),
+    fillDown: (evt => grid.setDownFillAtSelected(evt)),
+    fillCell: (evt => grid.setFillAtSelected(evt.fill)),
+    previewAcross: (evt => grid.setPreviewAcrossAtSelected(evt)),
+    previewDown: (evt => grid.setPreviewDownAtSelected(evt)),
+    previewCell: (evt => grid.setPreviewAtSelected(evt.fill)),
+    clearPreview: (evt => grid.clearPreview()),
+    getSelectedRegion: (() => grid.getSelectedRegion()),
+    setPreviewFromSubgrid: ((sub, offset) => grid.setPreviewFromSubgrid(sub, offset)),
+  };
 </script>
 
 <svelte:head>
@@ -75,16 +87,8 @@
 </svelte:head>
 
 <div id="body-wrapper">
-  <Grid {dict} bind:this={grid} on:update={generateCellOptions} {cellFillLen} />
-  <CellInfo {dict} {downFills} {acrossFills} {cellFills} {cellFillLen}
-    on:fillAcross={evt => grid.setAcrossFillAtSelected(evt.detail)}
-    on:fillDown={evt => grid.setDownFillAtSelected(evt.detail)}
-    on:fillCell={evt => grid.setFillAtSelected(evt.detail.fill)}
-    on:previewAcross={evt => grid.setPreviewAcrossAtSelected(evt.detail)}
-    on:previewDown={evt => grid.setPreviewDownAtSelected(evt.detail)}
-    on:previewCell={evt => grid.setPreviewAtSelected(evt.detail.fill)}
-    on:clearPreview={evt => grid.clearPreview()}
-  />
+  <Grid bind:this={grid} on:update={generateCellOptions} {cellFillLen} />
+  <Suggestions {dict} {downFills} {acrossFills} {cellFills} {cellFillLen} {gridCallbacks} />
 </div>
 
 <style>

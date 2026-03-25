@@ -1,14 +1,13 @@
 <script>
   import { base } from '$app/paths';
-  import { createEventDispatcher } from 'svelte';
   export let dict;
   export let acrossFills;
   export let downFills;
   export let cellFills;
   export let cellFillLen;
+  export let gridCallbacks;
 
   const suggestedWordLimit = 100;
-  const dispatch = createEventDispatcher();
 
   const highlightEntry = ({entry, pivotIdx}) => {
     const wordStart = pivotIdx * cellFillLen;
@@ -21,80 +20,66 @@
 </script>
 
 <div id="cell-data">
-  {#if dict}
-    <ul>
-      <li>{acrossFills?.length ?? "?"} potential across fills.
-        {#if acrossFills}
-          <div class="word-grid">
-            {#each acrossFills.slice(0, suggestedWordLimit) as entry}
-              <a on:click={() => dispatch('fillAcross', {
-                  word: entry.entry.word,
-                  pivotIdx: entry.pivotIdx,
-                })}
-                on:mouseover={() => dispatch('previewAcross', {
-                  word: entry.entry.word,
-                  pivotIdx: entry.pivotIdx,
-                })}
-                on:mouseout={() => dispatch('clearPreview')}
-              >
-                {@html highlightEntry(entry)}
-              </a>
-            {/each}
-          </div>
-        {/if}
-      </li>
-      <li>{downFills?.length ?? "?"} potential down fills.
-        {#if downFills}
-          <div class="word-grid">
-            {#each downFills.slice(0, suggestedWordLimit) as entry}
-              <a on:click={() => dispatch('fillDown', {
-                  word: entry.entry.word,
-                  pivotIdx: entry.pivotIdx,
-                })}
-                on:mouseover={() => dispatch('previewDown', {
-                  word: entry.entry.word,
-                  pivotIdx: entry.pivotIdx,
-                })}
-                on:mouseout={() => dispatch('clearPreview')}
-              >
-                {@html highlightEntry(entry)}
-              </a>
-            {/each}
-          </div>
-        {/if}
-      </li>
-      <li>{cellFills?.length ?? "?"} potential fills for this cell:
-        {#if cellFills}
-          <div class="letter-grid">
-            {#each cellFills as fill}
-              <a
-                on:click={() => dispatch('fillCell', { fill })}
-                on:mouseover={() => dispatch('previewCell', { fill })}
-                on:mouseout={() => dispatch('clearPreview')}
-              >{fill}</a>
-            {/each}
-          </div>
-        {/if}
-      </li>
-    </ul>
-  {:else}
-    <div class="spinner-container">
-      <img class="spinner" src="{base}/spinner.gif" alt="loading fill suggestions" />
-    </div>
-  {/if}
+  <ul>
+    <li>{acrossFills?.length ?? "?"} potential across fills.
+      {#if acrossFills}
+        <div class="word-grid">
+          {#each acrossFills.slice(0, suggestedWordLimit) as entry}
+            <a on:click={() => gridCallbacks.fillAcross({
+                word: entry.entry.word,
+                pivotIdx: entry.pivotIdx,
+              })}
+              on:mouseover={() => gridCallbacks.previewAcross({
+                word: entry.entry.word,
+                pivotIdx: entry.pivotIdx,
+              })}
+              on:mouseout={() => gridCallbacks.clearPreview()}
+            >
+              {@html highlightEntry(entry)}
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </li>
+    <li>{downFills?.length ?? "?"} potential down fills.
+      {#if downFills}
+        <div class="word-grid">
+          {#each downFills.slice(0, suggestedWordLimit) as entry}
+            <a on:click={() => gridCallbacks.fillDown({
+                word: entry.entry.word,
+                pivotIdx: entry.pivotIdx,
+              })}
+              on:mouseover={() => gridCallbacks.previewDown({
+                word: entry.entry.word,
+                pivotIdx: entry.pivotIdx,
+              })}
+              on:mouseout={() => gridCallbacks.clearPreview()}
+            >
+              {@html highlightEntry(entry)}
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </li>
+    <li>{cellFills?.length ?? "?"} potential fills for this cell:
+      {#if cellFills}
+        <div class="letter-grid">
+          {#each cellFills as fill}
+            <a
+              on:click={() => gridCallbacks.fillCell({ fill })}
+              on:mouseover={() => gridCallbacks.previewCell({ fill })}
+              on:mouseout={() => gridCallbacks.clearPreview()}
+            >{fill}</a>
+          {/each}
+        </div>
+      {/if}
+    </li>
+  </ul>
 </div>
 
 <style>
-  .spinner-container {
-    text-align: center;
-  }
-
-  img.spinner {
-    width: 99px;
-    image-rendering: pixelated;
-  }
-
   #cell-data {
+    overflow: auto;
     background-color: lightyellow;
     font-family: Arial;
   }

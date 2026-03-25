@@ -4,10 +4,8 @@
   import { chunked as chunkedGen, normalizedRegion } from './util';
   import { serializeGrid, deserializeGrid } from './serde';
   import Grid from "./grid";
-  import { Heap } from 'heap-js';
 
   export let cellFillLen;
-  export let dict;
   const chunked = word => chunkedGen(word, cellFillLen);
 
   const gridObj = new Grid({width: 20, height: 20});
@@ -35,6 +33,15 @@
     dispatchUpdate();
   }
 
+  export const getSelectedRegion = () => {
+    // Only fetches a _region_. If we're only selecting a single cell,
+    // returns `null`.
+    if (!isAreaSelected) return;
+    const region = normalizedSelected();
+    const sub = gridObj.cloneSubgrid(region);
+    return { region, grid: sub };
+  }
+
   const dispatchUpdate = () => {
     if (!selected) return;
     let idx = selected.y * width + selected.x;
@@ -59,6 +66,21 @@
   export const setDownFillAtSelected = args => {
     const updates = gridObj.updatesForDownFill({...selected, ...args});
     setUpdates(updates);
+  }
+
+  // &mut preview
+  export const setPreviewFromSubgrid = (sub, {offX, offY}) => {
+    preview.clear();
+    for (let y = 0; y < sub.height; y++) {
+      for (let x = 0; x < sub.width; x++) {
+        const subIdx = y * sub.width + x;
+        const supIdx = (y + offY) * width + (x + offX);
+        const cell = sub.grid[subIdx];
+        if (cell.wall) continue;
+        preview.set(supIdx, cell.fill);
+      }
+    }
+    preview = preview;
   }
 
   // ===
@@ -386,236 +408,6 @@
     };
   }
 
-  // &gridObj, &mut suggestion, &mut preview
-  const suggestRegion = async () => {
-    // The way our current suggestion code works, we REALLY REALLY want to have an anchor.
-    // This isn't strictly required, but it simplifies the mental model a bit, I think.
-    //
-    // so, okay, how about this:
-    // start by picking the fill order:
-    // - enumerate all the lines we need (filtering out fully-filled lines),
-    //   and max-heap em by how many characters are already filled
-    //   - or perhaps `max(filled), min(missing)`
-    //   - this ensures we always have an anchor
-    // - as you pick each one, insert each (new) cross fill back into the heap,
-    //   with the weight updated
-    // - keep pluckin from the heap, discarding lines we've already plucked
-    //
-    // After we've got the fill order, we can DFS following that order without
-    // having to think too hard about it. But with a modified DFS that can
-    // be suspended (ie no recursion).
-    //
-    // Christ, I wish we were doin this in Rust
-
-    if (!isAreaSelected) return;
-    const region = normalizedSelected();
-    // Javascript Have A Std Equality Operator Like Literally
-    // Every Other Modern Language Challenge [Impossible]
-    const props = ['minX', 'minY', 'maxX', 'maxY'];
-    if (!suggestion || !props.every(prop => suggestion.region[prop] === region[prop])) {
-      // Prime the generator if we don't have one for this region already
-      const sub = gridObj.cloneSubgrid(region);
-      const order = pickSuggestionOrder(sub);
-      const generator = findFills(sub, order);
-      suggestion = { region, generator };
-    }
-    // TODO: might need to lock the button while the generator is running
-    // TODO: mechanism to cancel the search
-    const { done, value } = await suggestion.generator.next();
-    if (done) {
-      suggestion = null;
-      console.log("no more suggestions");
-      // TODO: display a "no more suggestions" or something.
-      return;
-    }
-    const offset = {offX: suggestion.region.minX, offY: suggestion.region.minY};
-    setPreviewFromSubgrid(value, offset);
-  }
-
-  // &mut preview
-  const setPreviewFromSubgrid = (sub, {offX, offY}) => {
-    preview.clear();
-    for (let y = 0; y < sub.height; y++) {
-      for (let x = 0; x < sub.width; x++) {
-        const subIdx = y * sub.width + x;
-        const supIdx = (y + offY) * width + (x + offX);
-        const cell = sub.grid[subIdx];
-        if (cell.wall) continue;
-        preview.set(supIdx, cell.fill);
-      }
-    }
-    preview = preview;
-  }
-
-  const pickSuggestionOrder = sub => {
-    // Collect all the lines
-    const priorityComparator = (a, b) => b.filled - a.filled || a.missing - b.missing;
-    const frontier = new Heap(priorityComparator);
-    const current = new Map;
-    const fromPattern = args => {
-      const pattern = args.pattern;
-      const len = pattern.length;
-      const missing = pattern.reduce((agg, fill) => agg + (fill.length !== cellFillLen), 0);
-      if (!missing) return null;
-      const filled = len - missing;
-      const end = args.start + args.step * pattern.length;
-      return { missing, filled, end, ...args };
-    }
-    for (let idx = 0; idx < sub.grid.length; idx++) {
-      const x = idx % sub.width;
-      const y = Math.floor(idx / sub.width);
-      const cell = sub.grid[idx];
-      if (cell.acrossClue != null) {
-        const across = sub.acrossPattern({x, y});
-        const elem = fromPattern({
-          pattern: across.pattern,
-          start: idx,
-          step: 1,
-          dir: "across",
-          id: `${cell.number}A`,
-        });
-        if (elem) {
-          frontier.push({...elem});
-          current.set(elem.id, elem);
-        }
-      }
-      if (cell.downClue != null) {
-        const down = sub.downPattern({x, y});
-        const elem = fromPattern({
-          pattern: down.pattern,
-          start: idx,
-          step: sub.width,
-          dir: "down",
-          id: `${cell.number}D`,
-        });
-        if (elem) {
-          frontier.push({...elem});
-          current.set(elem.id, elem);
-        }
-      }
-    }
-
-    // Determine an order
-    const order = [];
-    const seenLines = new Set;
-    const seenCells = new Set; // XXX: could be a `bool[]` instead.
-    const pick = ({start, step, end}) => ({start, step, end});
-    let elem;
-    while (elem = frontier.pop()) {
-      if (seenLines.has(elem.id)) continue;
-      seenLines.add(elem.id);
-
-      // Track which `cells` we're actually updating with this line.
-      // ie: which cells aren't being updated by another line
-      const cells = [];
-      for (let idx = elem.start; idx < elem.end; idx += elem.step) {
-        const fill = sub.grid[idx].fill;
-        const isFilled = fill.length === cellFillLen;
-        if (isFilled || seenCells.has(idx)) continue;
-        seenCells.add(idx);
-        cells.push([idx, fill]);
-
-        // update `missing` and `filled` on the cross line
-        const x = idx % sub.width;
-        const y = Math.floor(idx / sub.width);
-        // note these conditions are intentionally swapped: we're seeking the cross line.
-        const crossCell = elem.dir === "across" ? sub.downClueCell({x, y}) : sub.acrossClueCell({x, y});
-        if (!crossCell) continue; // no cross line
-        const crossId = elem.dir === "across" ? `${crossCell.number}D` : `${crossCell.number}A`;
-        const cross = current.get(crossId);
-        if (!cross) continue; // no cross line
-        cross.missing -= 1;
-        cross.filled += 1;
-        frontier.push({...cross});
-      }
-      order.push({...pick(elem), cells});
-    }
-    // order: {cells: [idx, fill], start, step, end }}
-    return order;
-  }
-
-  // &dict
-  async function* findFills(sub, order) {
-    // Don't suggest fill with duplicate words in it.
-    // Like, cmon man.
-    const seenWords = new Set;
-
-    // Each element of the stack contains the following properties:
-    // - `fills`: a list of words (`string[]`) which could fit this line
-    // - `seek`: the index in `fills` of the next word we're going to try
-    // - `cur`: the index in `fills` of the word currently slotted into the grid.
-    // - `stack[i]`'s `start` and `step` are copied from `order[i]`, for convenience.
-    //   These define how to walk the line.
-    const stack = [];
-    // &mut stack, &sub, &order, &dict
-    const addFrame = () => {
-      const { start, step, end } = order[stack.length];
-      const gridChunks = [];
-      for (let idx = start; idx < end; idx += step) {
-        gridChunks.push(sub.grid[idx].fill);
-      }
-      const { gridFills } = dict.filterFit(gridChunks, 0, true);
-      const fills = gridFills.map(elem => elem.entry.word);
-      stack.push({ fills, seek: 0, cur: null, start, step });
-    }
-    addFrame();
-
-    // https://stackoverflow.com/a/63646084
-    // Finding fills is a slow process. We don't want to freeze the tab while we
-    // churn on it. `await`ing a `setTimeout` allows the UI to update, preventing
-    // the freezing effect. Running a `setTimeout` every iteration is slow, however
-    // (slows down fill find results). So we only run it every 20ms.
-    let startTime = performance.now();
-    async function refreshUi() {
-      const waitMs = 20;
-      if(performance.now() > startTime + waitMs) {
-        startTime = performance.now();
-        await new Promise(r => setTimeout(r, 0));
-      }
-    }
-
-    while (true) {
-      await refreshUi();
-      // # Succ
-      // Pop frames with no more potential words
-      let top;
-      while ((top = stack[stack.length - 1]) && top.seek >= top.fills.length) {
-        if (top.cur != null) seenWords.delete(top.fills[top.cur]);
-        stack.pop();
-        // reset the cells set by this slot
-        for (let [idx, fill] of order[stack.length].cells) {
-          sub.grid[idx].fill = fill;
-        }
-      }
-      // no more possible fills
-      if (!top) return;
-
-      // apply the next word
-      const word = top.fills[top.seek];
-      if (seenWords.has(word)) {
-        top.seek++;
-        continue;
-      }
-      seenWords.add(word);
-      if (top.cur != null) seenWords.delete(top.fills[top.cur]);
-      top.cur = top.seek;
-      let idx = top.start;
-      for (const fill of chunked(word)) {
-        sub.grid[idx].fill = fill;
-        idx += top.step;
-      }
-      top.seek++;
-
-      // if we've filled our slots, yield this as a possible fill
-      if (stack.length === order.length) {
-        yield sub; // TODO: dunno if this is the most helpful return format.
-        continue;
-      }
-      // otherwise, add a frame
-      addFrame();
-    }
-  }
-
   // doing an unpack here to coerce `null` to an object
   $: selAcrossClueCell = gridObj.acrossClueCell({...selected});
   $: selDownClueCell = gridObj.downClueCell({...selected});
@@ -639,8 +431,6 @@
       </div>
     </div>
     <button on:click={exportPuz}>Export{#if isAreaSelected}&nbsp;Selected{/if}</button>
-    <button on:click={suggestRegion}>Offer Fill</button>
-    <button>Accept Fill</button>
     <button class="push" disabled={undos.length === 0} on:click={undo}>Undo</button>
     <button disabled={redos.length === 0} on:click={redo}>Redo</button>
   </div>

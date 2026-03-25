@@ -168,6 +168,18 @@ export default class Grid {
   updatesForAcrossFill = acrossStep(updatesForFill);
   updatesForDownFill = downStep(updatesForFill);
 
+  clone() {
+    const grid = [];
+    for (const elem of this.grid) {
+      grid.push({...elem});
+    }
+    return new Grid({
+      grid,
+      height: this.height,
+      width: this.width,
+    });
+  }
+
   cloneSubgrid({minX, minY, maxX, maxY}) {
     const grid = [];
     for (let y = minY; y <= maxY; y++) {
