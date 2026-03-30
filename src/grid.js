@@ -89,9 +89,13 @@ const frontClueCell = function({front, step, x, y}) {
   // because it simplifies the svelte binds
   if (x == null || y == null) return {};
   let idx = x + width * y;
-  if (!grid[idx]) return null;
+  if (!grid[idx]) return {};
+
+  // Step backward into the leading wall, or out of bounds.
   for (; idx >= front && !grid[idx].wall; idx -= step) { }
-  return grid[idx + step];
+
+  // Step forward again to get leading space
+  return grid[idx + step] || {};
 };
 
 // fns for setting a full clue starting at some coordinate.
