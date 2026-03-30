@@ -1,3 +1,4 @@
+import { cellFillLen } from './constants';
 import { filterMap } from "./util";
 import Grid from "./grid";
 
@@ -86,12 +87,15 @@ const serializeFill = ({grid, width, height}) => {
       compress(WALL_ONE, WALL_MANY, elem => elem.wall);
     } else if (grid[idx].fill === "") {
       compress(EMPTY_ONE, EMPTY_MANY, elem => !elem.wall && elem.fill === "");
+    } else if (grid[idx].fill.length > cellFillLen) {
+      throw new Error("rebuses are unsupported")
     } else {
       const fill = grid[idx].fill;
-      const first = encodeChr(fill.charCodeAt(0));
-      const second = fill.length === 1 ? EMPTY_ONE : encodeChr(fill.charCodeAt(1));
-      write5(first);
-      write5(second);
+      for (let i = 0; i < fill.length; i++) {
+        const chr = encodeChr(fill.charCodeAt(i));
+        write5(chr);
+      }
+      if (fill.length < cellFillLen) write5(EMPTY_ONE);
       idx++
     }
   }
@@ -185,15 +189,15 @@ const deserializeFill = (fill) => {
   while (grid.length < width * height) {
     const elem = read(5);
     if (elem < 26) {
-      let fill;
-      const next = read(5);
-      if (next === EMPTY_ONE) {
-        fill = String.fromCharCode(elem + 65);
-      } else if (next < 26) {
-        fill = String.fromCharCode(elem + 65, next + 65);
-      } else {
-        throw new Error("could not deserialize -- unexpected fill byte");
+      const cell = [elem + 65];
+
+      for (let i = 1; i < cellFillLen; i++) {
+        const next = read(5);
+        if (next === EMPTY_ONE) break;
+        if (next >= 26) throw new Error("could not deserialize -- unexpected fill byte");
+        cell.push(next + 65);
       }
+      const fill = String.fromCharCode(...cell);
       grid.push({ fill, wall: false });
     } else if (elem === EMPTY_ONE) {
       grid.push({...EMPTY});
