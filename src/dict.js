@@ -36,7 +36,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
   //   we use this to lookup potential words.
   // `pivot` is our focal cell. It's probably empty, but it _must_
   //   be included within the suggested word.
-  const fitEm = anchorIdx => {
+  const findLineFill = anchorIdx => {
     let anchor = gridChunks[anchorIdx];
     let words = this.chunkIndex.get(anchor) || [];
     for (const entry of words) {
@@ -84,14 +84,26 @@ function filterFit(gridChunks, pivotIndex, exact) {
     }
   };
 
+  const findAllFill = () => {
+    if (!exact) return;
+    for (const entry of this.entries) {
+      const wordChunks = chunked(entry.word);
+      if (wordChunks.length != gridChunks.length) continue;
+      gridFills.push({ entry, pivotIdx: 0 });
+      // don't care about pivotFills right now
+    }
+  }
+
   if (gridChunks[pivotIndex].length === chunkLen) {
-    fitEm(pivotIndex);
+    findLineFill(pivotIndex);
   } else {
+    let emptyLine = true;
     // find words that fit:
     // - previous filled cell from pivot (& include pivot)
     for (let idx = pivotIndex; idx >= 0; idx--) {
       if (gridChunks[idx].length === chunkLen) {
-        fitEm(idx);
+        emptyLine = false;
+        findLineFill(idx);
         break
       }
     }
@@ -100,9 +112,14 @@ function filterFit(gridChunks, pivotIndex, exact) {
     // - next filled cell from pivot (& include pivot)
     for (let idx = pivotIndex; idx < gridChunks.length; idx++) {
       if (gridChunks[idx].length === chunkLen) {
-        fitEm(idx);
+        emptyLine = false;
+        findLineFill(idx);
         break
       }
+    }
+
+    if (emptyLine) {
+      findAllFill();
     }
   }
   gridFills.sort(keyToCmp(elem => [-elem.entry.score, elem.entry.word, elem.pivotIdx]));
