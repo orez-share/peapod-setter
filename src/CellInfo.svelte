@@ -1,10 +1,10 @@
 <script>
   import { base } from '$app/paths';
-  export let dict;
+  import { cellFillLen } from './constants';
+
   export let acrossFills;
   export let downFills;
   export let cellFills;
-  export let cellFillLen;
   export let gridCallbacks;
 
   const suggestedWordLimit = 100;

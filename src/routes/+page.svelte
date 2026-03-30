@@ -3,8 +3,8 @@
   import Grid from '../Grid.svelte';
   import Suggestions from '../Suggestions.svelte';
   import loadDict from '../dict.js';
+  import { cellFillLen } from '../constants.js'
 
-  const cellFillLen = 2;
   let grid;
   let dict = null;
   let downFills = null;
@@ -88,8 +88,8 @@
 </svelte:head>
 
 <div id="body-wrapper">
-  <Grid bind:this={grid} on:update={generateCellOptions} {cellFillLen} />
-  <Suggestions {dict} {downFills} {acrossFills} {cellFills} {cellFillLen} {gridCallbacks} />
+  <Grid bind:this={grid} on:update={generateCellOptions} />
+  <Suggestions {dict} {downFills} {acrossFills} {cellFills} {gridCallbacks} />
 </div>
 
 <style>

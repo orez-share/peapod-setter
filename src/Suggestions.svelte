@@ -6,7 +6,6 @@
   export let acrossFills;
   export let downFills;
   export let cellFills;
-  export let cellFillLen;
   export let gridCallbacks;
 
   let selectedTab = "cell";
@@ -20,10 +19,10 @@
     </div>
     <div class="body">
       <div class:hidden={selectedTab !== "cell"}>
-        <CellInfo {dict} {downFills} {acrossFills} {cellFills} {cellFillLen} {gridCallbacks} />
+        <CellInfo {downFills} {acrossFills} {cellFills} {gridCallbacks} />
       </div>
       <div class:hidden={selectedTab !== "region"}>
-        <RegionInfo {dict} {cellFillLen} {gridCallbacks}/>
+        <RegionInfo {dict} {gridCallbacks}/>
       </div>
     </div>
   {:else}

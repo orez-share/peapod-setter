@@ -1,4 +1,6 @@
-export const chunked = (word, chunkLen) => {
+import { cellFillLen } from "./constants";
+
+export const chunkedGen = (word, chunkLen) => {
   let chunks = [];
   for (let idx = 0; idx < word.length; idx += chunkLen) {
     const chunk = word.substring(idx, idx + chunkLen);
@@ -6,6 +8,8 @@ export const chunked = (word, chunkLen) => {
   }
   return chunks;
 }
+
+export const chunked = word => chunkedGen(word, cellFillLen);
 
 export const filterMap = (arr, fn) => {
   return arr.reduce((acc, item, idx) => {

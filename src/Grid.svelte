@@ -1,12 +1,10 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   import init, { generate_puz } from "xword-puz";
-  import { chunked as chunkedGen, normalizedRegion } from './util';
+  import { cellFillLen } from './constants';
+  import { chunked, normalizedRegion } from './util';
   import { serializeGrid, deserializeGrid } from './serde';
   import Grid from "./grid";
-
-  export let cellFillLen;
-  const chunked = word => chunkedGen(word, cellFillLen);
 
   const gridObj = new Grid({width: 20, height: 20});
   $: grid = gridObj.grid;

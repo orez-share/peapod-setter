@@ -1,8 +1,5 @@
 // Module for the `Grid` class
-const chunkLen = 2;
-
-import { chunked as chunkedGen, normalizedRegion } from './util';
-const chunked = word => chunkedGen(word, chunkLen);
+import { chunked, normalizedRegion } from './util';
 
 // silly overkill decorators for fns which step through
 // the grid either Down or Across.

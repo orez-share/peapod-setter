@@ -1,10 +1,9 @@
 <script>
   import { Heap } from 'heap-js';
-  import { chunked as chunkedGen, normalizedRegion } from './util';
+  import { cellFillLen } from './constants';
+  import { chunked, normalizedRegion } from './util';
 
   export let dict;
-  export let cellFillLen;
-  const chunked = word => chunkedGen(word, cellFillLen);
   const maxResults = 100;
 
   export let gridCallbacks;
