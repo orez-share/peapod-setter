@@ -1,8 +1,6 @@
-const chunkLen = 2;
-
 import { base } from '$app/paths';
-import { chunked as chunkedGen, filterMap, keyToCmp } from "./util";
-const chunked = word => chunkedGen(word, chunkLen);
+import { cellFillLen as chunkLen } from "./constants";
+import { chunked, filterMap, keyToCmp } from "./util";
 
 export default async () => {
   const file = await fetch(`${base}/dict/words.txt`);
