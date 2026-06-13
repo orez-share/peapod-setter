@@ -377,7 +377,15 @@
       title,
       author,
     };
-    const fileContents = generate_puz(payload, "ipuz");
+    let fileContents = generate_puz(payload, "ipuz");
+    // Inject the peapod `kind` into the ipuz payload.
+    // Arguably this should be handled by the puzzle generation code,
+    // but I don't like any of the APIs I'm coming up with for that.
+    const ipuz = JSON.parse(new TextDecoder().decode(fileContents));
+    const peapodKind = "https://orez-share.github.io/peapods/format";
+    ipuz.kind.push(peapodKind);
+    fileContents = JSON.stringify(ipuz);
+
     const filename = sanitizeFilename(title) || "Untitled";
     downloadBlob(fileContents, `${filename}.ipuz`, "application/octet-stream");
   }

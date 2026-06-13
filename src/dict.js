@@ -21,6 +21,14 @@ export default async () => {
 // ["", "AB", "", "CD"] <- gridChunks
 //             ^ pivotIndex
 function filterFit(gridChunks, pivotIndex, exact) {
+  // This fn was written assuming a single (full) cell is enough to prune
+  // a LOT of the full dictionary. This is true for a peapod; this is
+  // NOT true for a crossword.
+  //
+  // Would be nice to run this fn nonblocking, or to have an alternate
+  // strategy for crosswords. But I don't want to do any of that right now.
+  if (chunkLen === 1 && !exact) return { gridFills: [], cellFills: new Set };
+
   // pivotIndex is relative to gridChunks
   // anchorIdx is relative to gridChunks
   // wordIdx is relative to wordChunks
