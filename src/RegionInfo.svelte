@@ -62,7 +62,7 @@
         return;
       }
     }
-    status = "done";
+    if (status !== "canceled") status = "done";
   }
 
   const pickSuggestionOrder = sub => {
@@ -195,6 +195,7 @@
 
     while (true) {
       await refreshUi();
+      if (status === "canceled") return;
       // # Succ
       // Pop frames with no more potential words
       let top;
@@ -237,6 +238,12 @@
 
   // ===
 
+  const cancelSearch = () => {
+    status = "canceled";
+  }
+
+  // ===
+
   const displayStatus = status => {
     switch (status) {
       case "start":
@@ -245,6 +252,8 @@
         return "Searching..."
       case "truncated":
         return `Stopping after ${maxResults} results.`
+      case "canceled":
+        return "Canceled"
       case "done":
         return `Done! Found ${suggestions.length} result${suggestions.length === 1 ? "" : "s"}.`
       default:
@@ -255,6 +264,7 @@
 
 <div class="body">
   <button disabled={!ready} on:click={suggestRegion}>Suggest Fill</button>
+  <button disabled={ready} on:click={cancelSearch}>Cancel</button>
   { displayStatus(status) }
   <div class="opt-grid">
     {#each suggestions as suggestion}
