@@ -399,6 +399,10 @@
   const inscribePreview = (cell, preview) => {
     if (!preview) return null;
     const idx = preview.indexOf(cell);
+    if (idx === -1) {
+      // No overlap. We're fully replacing the cell contents.
+      return { before: preview, existing: "", after: "" };
+    }
     return {
       before: preview.substring(0, idx),
       existing: cell,
