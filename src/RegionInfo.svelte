@@ -17,6 +17,10 @@
   let suggestions = [];
   let searchedRegion = null;
   let status = "start";
+  // We don't know ahead of time how many possibilities we're going to be checking overall,
+  // but we know how many possibilities our first line has. `progress` is the
+  // `{value, max}` progress of the first line in the stack in the region search.
+  let progress = null;
   $: searchedOffset = searchedRegion && {offX: searchedRegion.minX, offY: searchedRegion.minY};
   $: ready = status !== "searching";
 
@@ -152,7 +156,7 @@
     return order;
   }
 
-  // &dict
+  // &dict, &status, &mut progress
   async function* findFills(sub, order) {
     if (!order.length) return;
     // Don't suggest fill with duplicate words in it.
@@ -178,6 +182,7 @@
       stack.push({ fills, seek: 0, cur: null, start, step });
     }
     addFrame();
+    progress = { value: 0, max: stack[0].fills.length };
 
     // https://stackoverflow.com/a/63646084
     // Finding fills is a slow process. We don't want to freeze the tab while we
@@ -196,6 +201,7 @@
     while (true) {
       await refreshUi();
       if (status === "canceled") return;
+      progress.value = stack[0].cur || 0;
       // # Succ
       // Pop frames with no more potential words
       let top;
@@ -266,6 +272,10 @@
   <button disabled={!ready} on:click={suggestRegion}>Suggest Fill</button>
   <button disabled={ready} on:click={cancelSearch}>Cancel</button>
   { displayStatus(status) }
+  {#if status === "searching" && progress != null }
+    <br><progress {...progress} />
+    <span>{progress.value} / {progress.max}</span>
+  {/if}
   <div class="opt-grid">
     {#each suggestions as suggestion}
       <div
