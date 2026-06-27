@@ -8,7 +8,7 @@ export default async () => {
   const entries = filterMap(text.split('\n'), toEntry);
   const chunkIndex = new Map;
   for (const entry of entries) {
-    const chunks = new Set(chunked(entry.word));
+    const chunks = new Set(entry.chunks);
     for (const chunk of chunks) {
       const indexEntry = chunkIndex.get(chunk) || [];
       indexEntry.push(entry);
@@ -48,7 +48,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
     let anchor = gridChunks[anchorIdx];
     let words = this.chunkIndex.get(anchor) || [];
     for (const entry of words) {
-      const wordChunks = chunked(entry.word);
+      const wordChunks = entry.chunks;
       if (exact && wordChunks.length != gridChunks.length) continue;
       for (const [wordIdx, chunk] of wordChunks.entries()) {
         if (chunk === anchor) {  // try anchoring here
@@ -95,7 +95,7 @@ function filterFit(gridChunks, pivotIndex, exact) {
   const findAllFill = () => {
     if (!exact) return;
     for (const entry of this.entries) {
-      const wordChunks = chunked(entry.word);
+      const wordChunks = entry.chunks;
       if (wordChunks.length != gridChunks.length) continue;
       gridFills.push({ entry, pivotIdx: 0 });
       // don't care about pivotFills right now
@@ -153,5 +153,6 @@ const toEntry = line => {
   if (!word.match(`^([A-Z]{${chunkLen}})+$`)) return null;
 
   score = +score;
-  return { word, score }
+  const chunks = chunked(word);
+  return { word, score, chunks }
 }
