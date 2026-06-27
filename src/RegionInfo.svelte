@@ -177,7 +177,7 @@
       for (let idx = start; idx < end; idx += step) {
         gridChunks.push(sub.grid[idx].fill);
       }
-      const { gridFills } = dict.filterFit(gridChunks, 0, true);
+      const gridFills = dict.filterFit(gridChunks, 0, true);
       const fills = gridFills.map(elem => elem.entry.word);
       stack.push({ fills, seek: 0, cur: null, start, step });
     }

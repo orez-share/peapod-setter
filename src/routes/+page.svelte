@@ -38,7 +38,11 @@
     const getStats = ({ pattern, index, exact }) => {
       // Only look for fits if we have some cell on this axis to anchor on
       if (pattern.some(cell => cell.length === cellFillLen)) {
-        const { gridFills, cellFills } = dict.filterFit(pattern, index, exact);
+        const gridFills = dict.filterFit(pattern, index, exact);
+        const cellFills = new Set;
+        for (const { entry, pivotIdx } of gridFills) {
+          cellFills.add(entry.chunks[pivotIdx]);
+        }
         allCellFills = intersect(allCellFills, cellFills);
         return gridFills;
       }
@@ -51,13 +55,11 @@
     // Limit to entries that are fill-able on the other axis.
     // XXX: should this be toggleable?
     downFills = downFills?.filter(({ entry, pivotIdx }) => {
-      let idx = pivotIdx * cellFillLen;
-      let pivot = entry.word.slice(idx, idx + cellFillLen);
+      let pivot = entry.chunks[pivotIdx];
       return allCellFills.has(pivot);
     });
     acrossFills = acrossFills?.filter(({ entry, pivotIdx }) => {
-      let idx = pivotIdx * cellFillLen;
-      let pivot = entry.word.slice(idx, idx + cellFillLen);
+      let pivot = entry.chunks[pivotIdx];
       return allCellFills.has(pivot);
     });
 
