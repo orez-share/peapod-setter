@@ -27,7 +27,7 @@
         <ol class="word-grid">
           {#each acrossFills.slice(0, suggestedWordLimit) as entry}
             <li>
-              <a on:click={() => gridCallbacks.fillAcross({
+              <button on:click={() => gridCallbacks.fillAcross({
                   word: entry.entry.word,
                   pivotIdx: entry.pivotIdx,
                 })}
@@ -38,7 +38,7 @@
                 on:mouseout={() => gridCallbacks.clearPreview()}
               >
                 {@html highlightEntry(entry)}
-              </a>
+              </button>
             </li>
           {/each}
         </ol>
@@ -52,7 +52,7 @@
         <ol class="word-grid">
           {#each downFills.slice(0, suggestedWordLimit) as entry}
             <li>
-              <a on:click={() => gridCallbacks.fillDown({
+              <button on:click={() => gridCallbacks.fillDown({
                   word: entry.entry.word,
                   pivotIdx: entry.pivotIdx,
                 })}
@@ -63,7 +63,7 @@
                 on:mouseout={() => gridCallbacks.clearPreview()}
               >
                 {@html highlightEntry(entry)}
-              </a>
+              </button>
             </li>
           {/each}
         </ol>
@@ -76,11 +76,11 @@
       <div class="section-contents">
         <ol class="letter-grid">
           {#each cellFills as fill}
-            <li><a
+            <li><button
               on:click={() => gridCallbacks.fillCell({ fill })}
               on:mouseover={() => gridCallbacks.previewCell({ fill })}
               on:mouseout={() => gridCallbacks.clearPreview()}
-            >{fill}</a></li>
+            >{fill}</button></li>
           {/each}
         </ol>
       </div>
@@ -131,7 +131,8 @@
     grid-template-columns: repeat(auto-fill, minmax(2em, 1fr));
   }
 
-  a {
+  button {
+    all: unset;
     cursor: pointer;
   }
 </style>

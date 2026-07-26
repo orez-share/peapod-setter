@@ -14,8 +14,8 @@
 <div>
   {#if dict}
     <div class="tabs">
-      <div class="cell tab" on:click={() => selectedTab = "cell"}>Cell</div>
-      <div class="region tab" on:click={() => selectedTab = "region"}>Region [Experimental!]</div>
+      <button class="cell tab" on:click={() => selectedTab = "cell"}>Cell</button>
+      <button class="region tab" on:click={() => selectedTab = "region"}>Region [Experimental!]</button>
     </div>
     <div class="body">
       <div class:hidden={selectedTab !== "cell"}>
@@ -65,5 +65,9 @@
 
   .region {
     background-color: lightblue;
+  }
+
+  button {
+    all: unset;
   }
 </style>
