@@ -138,6 +138,15 @@
     gridObj.renumber();
   }
 
+  const toggleWalls = (region) => {
+    if (!region) return;
+    const fill = "";
+    const wall = regionIdxs(region).some(idx => !grid[idx].wall);
+    const updates = mapRegionForUpdate(region, idx => ({ fill, wall }));
+    performAction("Toggle walls", updates);
+    gridObj.renumber();
+  }
+
   const handleCellMouseOver = ({event, x, y}) => {
     if (event.buttons != 1 || selected?.state !== "area") return;
     selected.x2 = x;
@@ -183,6 +192,9 @@
         } else if (selected.x != 0 && !grid[idx-1].wall) {
           setSelected({x: selected.x - 1, y: selected.y});
         }
+        break;
+      case 190: // .
+        toggleWalls(selected);
         break;
       default:
         if (!selected) return;
@@ -312,6 +324,23 @@
     setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   }
 
+  function* regionIdxs(region) {
+    const { minX, maxX, minY, maxY } = normalizedRegion(region);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        yield y * width + x;
+      }
+    }
+  }
+
+  const mapRegionForUpdate = (region, fIs) => {
+    const it = regionIdxs(region).map(idx => {
+      const is = fIs(idx);
+      return { idx, is };
+    });
+    return Array.from(it);
+  }
+
   const normalizedSelected = () => normalizedRegion(selected);
 
   const copySelected = () => {
@@ -324,21 +353,10 @@
 
   const deleteSelected = (action) => {
     if (!selected) return;
-    const updates = [];
-    const { minX, maxX, minY, maxY } = normalizedSelected();
-
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        const idx = y * width + x;
-        updates.push({
-          idx,
-          is: {
-            fill: "",
-            wall: false,
-          },
-        });
-      }
-    }
+    const updates = mapRegionForUpdate(selected, idx => ({
+      fill: "",
+      wall: false,
+    }));
     performAction(action, updates);
     gridObj.renumber();
   }
