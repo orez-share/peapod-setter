@@ -255,6 +255,7 @@
 
   const undo = () => {
     let action = undos.pop();
+    if (action == null) return;
     redos.push(action);
 
     for (let update of action.updates) {
@@ -270,6 +271,7 @@
 
   const redo = () => {
     let action = redos.pop();
+    if (action == null) return;
     undos.push(action);
 
     for (let update of action.updates) {
