@@ -21,8 +21,8 @@
 
 <div id="cell-data">
   <div class="section">
-    {acrossFills?.length ?? "?"} potential across fills.
-    {#if acrossFills}
+    {acrossFills?.length ?? "?"} potential across fills
+    {#if acrossFills?.length}
       <div class="section-contents">
         <ol class="word-grid">
           {#each acrossFills.slice(0, suggestedWordLimit) as entry}
@@ -46,8 +46,8 @@
     {/if}
   </div>
   <div class="section">
-    {downFills?.length ?? "?"} potential down fills.
-    {#if downFills}
+    {downFills?.length ?? "?"} potential down fills
+    {#if downFills?.length}
       <div class="section-contents">
         <ol class="word-grid">
           {#each downFills.slice(0, suggestedWordLimit) as entry}
@@ -71,8 +71,8 @@
     {/if}
   </div>
   <div class="section">
-    {cellFills?.length ?? "?"} potential fills for this cell:
-    {#if cellFills}
+    {cellFills?.length ?? "?"} potential fills for this cell
+    {#if cellFills?.length}
       <div class="section-contents">
         <ol class="letter-grid">
           {#each cellFills as fill}
