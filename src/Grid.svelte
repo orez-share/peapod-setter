@@ -301,6 +301,7 @@
     if (!selected) return;
     const offset = {offX: selected.x, offY: selected.y};
     const updates = gridObj.updatesForBlitSubgrid(sub, offset);
+    if (!updates) return;
     performAction("Paste region", updates);
     gridObj.renumber();
   }
